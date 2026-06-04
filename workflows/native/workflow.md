@@ -253,6 +253,7 @@ Sub-agent dispatch protocol applies to all platforms and all sub-agents, includi
 
 [workflow-state:in_progress]
 Goal execution override: if the active task's `prd.md` contains `## Goal Contract` or Goal Contract Collision output from `trellis-goal`, load `trellis-goal` first. Inspect Codex native goal state when available, continue only active native goals, and use `implement.md` checkpoints as evidence/recovery landmarks rather than a local queue or run-to-completion loop.
+Active goal behavior: while the Goal Contract objective and Frozen Invariants remain unchanged, do not fall back to the ordinary task clarification loop. Continue autonomously through approved research, `trellis-grill-agents` for medium ambiguity, delegated decisions, verification, and Evidence Chain updates. High-risk, scope-changing, credential/production/legal/destructive, or user-owned boundaries must Stop/Block with a Trellis artifact record before any native `update_goal(blocked)` action.
 Tools: `trellis-implement` / `trellis-research` are sub-agent types only (Task/Agent tool, NOT Skill; there is no skill by these names). `trellis-update-spec` is a skill. `trellis-check` exists as both; prefer the Agent form when verifying after code changes.
 Flow: `trellis-implement` -> `trellis-check` -> `trellis-update-spec` -> commit (Phase 3.4) -> `/trellis:finish-work`.
 Main-session default: dispatch implement/check sub-agents. Sub-agent self-exemption: if already running as `trellis-implement`, do NOT spawn another `trellis-implement` or `trellis-check`; if already running as `trellis-check`, do NOT spawn another `trellis-check` or `trellis-implement`. Dispatch is main session only.
@@ -266,6 +267,7 @@ Dispatch prompt starts with `Active task: <task path from task.py current>`. Rea
 
 [workflow-state:in_progress-inline]
 Goal execution override: if the active task's `prd.md` contains `## Goal Contract` or Goal Contract Collision output from `trellis-goal`, load `trellis-goal` first. Inspect Codex native goal state when available, continue only active native goals, and use `implement.md` checkpoints as evidence/recovery landmarks rather than a local queue or run-to-completion loop.
+Active goal behavior: while the Goal Contract objective and Frozen Invariants remain unchanged, do not fall back to the ordinary task clarification loop. Continue autonomously through approved research, `trellis-grill-agents` for medium ambiguity, delegated decisions, verification, and Evidence Chain updates. High-risk, scope-changing, credential/production/legal/destructive, or user-owned boundaries must Stop/Block with a Trellis artifact record before any native `update_goal(blocked)` action.
 Flow: `trellis-before-dev` -> edit -> `trellis-check` -> validation -> `trellis-update-spec` -> commit (Phase 3.4) -> `/trellis:finish-work`.
 Do not dispatch implement/check sub-agents in inline mode.
 Read context: `prd.md` -> `design.md if present` -> `implement.md if present`, plus relevant spec/research loaded by skills.
