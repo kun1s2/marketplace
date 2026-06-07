@@ -6,8 +6,8 @@ The goal is to discover the project's real architecture before writing rules. Do
 
 1. Read the existing `.trellis/spec/` tree and note which files are templates, outdated, or already project-specific.
 2. Inspect package manifests, build scripts, workspace config, and top-level documentation to identify packages and runtime layers.
-3. Use GitNexus for execution flows, module clusters, dependency hubs, and impact-sensitive areas.
-4. Use ABCoder or language-native tooling for exact signatures, types, class boundaries, and implementation examples.
+3. Use `code-context-search` / Fast Context first when relevant files, modules, routes, or flows are unclear.
+4. Use language-native tooling and direct source reads for exact signatures, types, class boundaries, and implementation examples.
 5. Read representative source and test files directly before turning any finding into a spec rule.
 
 ## What To Capture
@@ -22,31 +22,33 @@ The goal is to discover the project's real architecture before writing rules. Do
 | Configuration | Where do defaults, environment config, generated files, and templates live? |
 | Tests | Which test styles are trusted examples for new work? |
 
-## GitNexus Usage
+## Code Context Search Usage
 
-Start broad, then inspect specific symbols:
-
-```text
-gitnexus_query({query: "CLI command execution flow"})
-gitnexus_query({query: "template generation and migration"})
-gitnexus_context({name: "SymbolName"})
-gitnexus_cypher({query: "MATCH (n)-[r]->(m) RETURN n.name, type(r), m.name LIMIT 30"})
-```
-
-Use GitNexus results to find important files and flows. Do not quote graph output as the final authority until you have checked the relevant source files.
-
-## ABCoder Usage
-
-Use ABCoder when the spec needs exact code shapes:
+Start with semantic location, then inspect specific files:
 
 ```text
-list_repos()
-get_repo_structure({repo_name: "package-name"})
-get_file_structure({repo_name: "package-name", file_path: "src/example.ts"})
-get_ast_node({repo_name: "package-name", node_ids: [{mod_path: "...", pkg_path: "...", name: "SymbolName"}]})
+Use code-context-search to find "CLI command execution flow"
+Use code-context-search to find "template generation and migration"
+Read the returned files and line ranges directly
+Use exact search only after candidates are identified
 ```
 
-ABCoder is most valuable for documenting constructor patterns, function signatures, type contracts, and reference chains.
+Treat Fast Context results as candidates. Do not quote a semantic search
+summary as final authority until you have checked the relevant source files.
+
+## Source Inspection Usage
+
+Use direct source reads and language-native tooling when the spec needs exact
+code shapes:
+
+```text
+Read representative source files
+Read matching tests and fixtures
+Run typecheck, lint, or package scripts when behavior needs verification
+```
+
+Source inspection is the final authority for documenting constructor patterns,
+function signatures, type contracts, and reference chains.
 
 ## Analysis Notes
 

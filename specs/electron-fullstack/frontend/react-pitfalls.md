@@ -304,4 +304,4 @@ When a hook uses an `id` to manage state, assume the state resets on `id` change
 
 ---
 
-**Language**: All documentation must be written in **English**.
+**Language**: 面向人类阅读的 Trellis 文档默认使用**中文**编写；保留 file name、command、API name、JSON key、status value、symbol name 和 Trellis technical terms 的原始语言。
