@@ -198,7 +198,7 @@ Create new children with `task.py create "<title>" --slug <name> --parent <paren
 <!-- Per-turn breadcrumb: shown when there is no active task (before Phase 1) -->
 
 [workflow-state:no_task]
-Goal entry: load `trellis-goal` only if the user's current request explicitly invokes `/goal`, asks for Codex native Goal Mode, requests unattended or long-running autonomous execution, or asks to draft/review/convert a Trellis-backed Goal Contract. Do not route ordinary multi-step tasks, lightweight prompts, simple Q&A, short reviews, or generic "keep working until done" requests into goal mode. `trellis-goal` creates or updates a Trellis task, preserves raw input in `prd.md`, writes the Goal Contract and checkpoint/evidence plan into Trellis artifacts, starts the task only after its quality gate passes, then bridges to Codex native goal mode with `create_goal` when available; non-Codex platforms must not simulate native Goal Mode or call unavailable Goal tools.
+Goal entry: load `trellis-goal` only if the user's current request explicitly invokes `/goal`, asks for native Goal Mode on the current platform, requests unattended or long-running autonomous execution, or asks to draft/review/convert a Trellis-backed Goal Contract. Do not route ordinary multi-step tasks, lightweight prompts, simple Q&A, short reviews, or generic "keep working until done" requests into goal mode. `trellis-goal` creates or updates a Trellis task, preserves raw input in `prd.md`, writes the Goal Contract and checkpoint/evidence plan into Trellis artifacts, starts the task only after its quality gate passes, then bridges through the current platform's native goal handoff when available; sessions without native goal tools must not simulate native Goal Mode or call unavailable Goal tools.
 No active task. First classify the current turn and ask for task-creation consent before creating any Trellis task.
 Simple conversation / small task: ask only whether this turn should create a Trellis task. If the user says no, skip Trellis for this session.
 Complex task: ask the user if you can create a Trellis task and enter the planning phase. If the user says no, explain, clarify scope, or suggest a smaller split.
@@ -215,7 +215,7 @@ Complex task: ask the user if you can create a Trellis task and enter the planni
 <!-- Per-turn breadcrumb: shown throughout Phase 1 (status='planning') -->
 
 [workflow-state:planning]
-If this task was initialized or converted by `trellis-goal`, load `trellis-goal` when available and follow `prd.md` Goal Contract plus `implement.md` checkpoints; bridge or continue through Codex native goal state when native Goal tools exist, otherwise record/report the unavailable native handoff instead of running a local Trellis execution loop.
+If this task was initialized or converted by `trellis-goal`, load `trellis-goal` when available and follow `prd.md` Goal Contract plus `implement.md` checkpoints; bridge or continue through the current platform's native goal state when native Goal tools exist, otherwise record/report the unavailable native handoff instead of running a local Trellis execution loop.
 Otherwise, load `trellis-brainstorm`; stay in planning and make an explicit Grill Gate decision before start.
 Architecture Shaping: record `Architecture Shaping: required; see research/architecture-shaping.md.` or `Architecture Shaping: skipped, because ...` before `task.py start` for complex tasks. Use `trellis-architecture-shaping` when the task creates modules, changes contracts, affects testability, introduces durable domain behavior, or risks toy-MVP implementation.
 Grill Gate: record `trellis-grill-me required`, `trellis-grill-agents required`, or `skip grill, because ...` in the task artifacts. The AI may skip only when evidence proves the task is mechanical, low-risk, and acceptance is explicit.
@@ -232,7 +232,7 @@ Sub-agent mode: curate `implement.jsonl` and `check.jsonl` as spec/research mani
      into a sub-agent. -->
 
 [workflow-state:planning-inline]
-If this task was initialized or converted by `trellis-goal`, load `trellis-goal` when available and follow `prd.md` Goal Contract plus `implement.md` checkpoints; bridge or continue through Codex native goal state when native Goal tools exist, otherwise record/report the unavailable native handoff instead of running a local Trellis execution loop.
+If this task was initialized or converted by `trellis-goal`, load `trellis-goal` when available and follow `prd.md` Goal Contract plus `implement.md` checkpoints; bridge or continue through the current platform's native goal state when native Goal tools exist, otherwise record/report the unavailable native handoff instead of running a local Trellis execution loop.
 Otherwise, load `trellis-brainstorm`; stay in planning and make an explicit Grill Gate decision before start.
 Architecture Shaping: record `Architecture Shaping: required; see research/architecture-shaping.md.` or `Architecture Shaping: skipped, because ...` before `task.py start` for complex tasks. Use `trellis-architecture-shaping` when the task creates modules, changes contracts, affects testability, introduces durable domain behavior, or risks toy-MVP implementation.
 Grill Gate: record `trellis-grill-me required`, `trellis-grill-agents required`, or `skip grill, because ...` in the task artifacts. The AI may skip only when evidence proves the task is mechanical, low-risk, and acceptance is explicit.
@@ -256,8 +256,8 @@ Inline mode: skip jsonl curation; Phase 2 reads artifacts/specs via `trellis-bef
 Sub-agent dispatch protocol applies to all platforms and all sub-agents, including class-2 Codex/Copilot/Gemini/Qoder and `trellis-research`: every dispatch prompt starts with `Active task: <task path from task.py current>` before role-specific instructions.
 
 [workflow-state:in_progress]
-Goal execution override: if the active task's `prd.md` contains `## Goal Contract` or Goal Contract Collision output from `trellis-goal`, load `trellis-goal` when available. Inspect Codex native goal state when native Goal tools exist, continue only active native goals, and use `implement.md` checkpoints as evidence/recovery landmarks rather than a local queue or run-to-completion loop. Non-Codex platforms must record/report unavailable native handoff instead of simulating a goal runner.
-Active goal behavior: while the Goal Contract objective and Frozen Invariants remain unchanged, do not fall back to the ordinary task clarification loop. Continue autonomously through approved research, `trellis-grill-agents` for medium ambiguity, delegated decisions, verification, and Evidence Chain updates. High-risk, scope-changing, credential/production/legal/destructive, or user-owned boundaries must Stop/Block with a Trellis artifact record before any native `update_goal(blocked)` action.
+Goal execution override: if the active task's `prd.md` contains `## Goal Contract` or Goal Contract Collision output from `trellis-goal`, load `trellis-goal` when available. Inspect current-platform native goal state when native Goal tools exist, continue only active native goals, and use `implement.md` checkpoints as evidence/recovery landmarks rather than a local queue or run-to-completion loop. Sessions without native goal tools must record/report unavailable native handoff instead of simulating a goal runner.
+Active goal behavior: while the Goal Contract objective and Frozen Invariants remain unchanged, do not fall back to the ordinary task clarification loop. Continue autonomously through approved research, `trellis-grill-agents` for medium ambiguity, delegated decisions, verification, and Evidence Chain updates. High-risk, scope-changing, credential/production/legal/destructive, or user-owned boundaries must Stop/Block with a Trellis artifact record before any native terminal-status action.
 Tools: `trellis-implement` / `trellis-research` are sub-agent types only (Task/Agent tool, NOT Skill; there is no skill by these names). `trellis-update-spec` is a skill. `trellis-check` exists as both; prefer the Agent form when verifying after code changes.
 Flow: `trellis-implement` -> `trellis-check` -> `trellis-update-spec` -> commit (Phase 3.4) -> `/trellis:finish-work`.
 Main-session default: dispatch implement/check sub-agents. Sub-agent self-exemption: if already running as `trellis-implement`, do NOT spawn another `trellis-implement` or `trellis-check`; if already running as `trellis-check`, do NOT spawn another `trellis-check` or `trellis-implement`. Dispatch is main session only.
@@ -270,8 +270,8 @@ Dispatch prompt starts with `Active task: <task path from task.py current>`. Rea
      instead of dispatching sub-agents. -->
 
 [workflow-state:in_progress-inline]
-Goal execution override: if the active task's `prd.md` contains `## Goal Contract` or Goal Contract Collision output from `trellis-goal`, load `trellis-goal` when available. Inspect Codex native goal state when native Goal tools exist, continue only active native goals, and use `implement.md` checkpoints as evidence/recovery landmarks rather than a local queue or run-to-completion loop. Non-Codex platforms must record/report unavailable native handoff instead of simulating a goal runner.
-Active goal behavior: while the Goal Contract objective and Frozen Invariants remain unchanged, do not fall back to the ordinary task clarification loop. Continue autonomously through approved research, `trellis-grill-agents` for medium ambiguity, delegated decisions, verification, and Evidence Chain updates. High-risk, scope-changing, credential/production/legal/destructive, or user-owned boundaries must Stop/Block with a Trellis artifact record before any native `update_goal(blocked)` action.
+Goal execution override: if the active task's `prd.md` contains `## Goal Contract` or Goal Contract Collision output from `trellis-goal`, load `trellis-goal` when available. Inspect current-platform native goal state when native Goal tools exist, continue only active native goals, and use `implement.md` checkpoints as evidence/recovery landmarks rather than a local queue or run-to-completion loop. Sessions without native goal tools must record/report unavailable native handoff instead of simulating a goal runner.
+Active goal behavior: while the Goal Contract objective and Frozen Invariants remain unchanged, do not fall back to the ordinary task clarification loop. Continue autonomously through approved research, `trellis-grill-agents` for medium ambiguity, delegated decisions, verification, and Evidence Chain updates. High-risk, scope-changing, credential/production/legal/destructive, or user-owned boundaries must Stop/Block with a Trellis artifact record before any native terminal-status action.
 Flow: `trellis-before-dev` -> edit -> `trellis-check` -> validation -> `trellis-update-spec` -> commit (Phase 3.4) -> `/trellis:finish-work`.
 Do not dispatch implement/check sub-agents in inline mode.
 Read context: `prd.md` -> `design.md if present` -> `implement.md if present`, plus relevant spec/research loaded by skills.
@@ -311,7 +311,7 @@ When a user request matches one of these intents inside an active task, route fi
 [Claude Code, Cursor, OpenCode, codex-sub-agent, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi]
 
 - Planning or unclear requirements -> `trellis-brainstorm`.
-- `/goal`, Codex native Goal Mode, explicit unattended/long-running autonomous execution, or Goal Contract drafting/conversion -> `trellis-goal`.
+- `/goal`, native Goal Mode on the current platform, explicit unattended/long-running autonomous execution, or Goal Contract drafting/conversion -> `trellis-goal`.
 - Architecture-sensitive planning, module boundaries, testability, architecture improvement/refactoring opportunities, large/long-lived project structure, or anti-toy-MVP concerns -> `trellis-architecture-shaping`.
 - Requirement/design pressure-testing with the user participating -> `trellis-grill-me`; explicitly authorized unattended/proxy artifact grilling -> `trellis-grill-agents`.
 - `in_progress` implementation/check -> dispatch `trellis-implement` / `trellis-check`.
@@ -322,7 +322,7 @@ When a user request matches one of these intents inside an active task, route fi
 [codex-inline, Kilo, Antigravity, Windsurf]
 
 - Planning or unclear requirements -> `trellis-brainstorm`.
-- `/goal`, Codex native Goal Mode, explicit unattended/long-running autonomous execution, or Goal Contract drafting/conversion -> `trellis-goal`.
+- `/goal`, native Goal Mode on the current platform, explicit unattended/long-running autonomous execution, or Goal Contract drafting/conversion -> `trellis-goal`.
 - Architecture-sensitive planning, module boundaries, testability, architecture improvement/refactoring opportunities, large/long-lived project structure, or anti-toy-MVP concerns -> `trellis-architecture-shaping`.
 - Requirement/design pressure-testing with the user participating -> `trellis-grill-me`; explicitly authorized unattended/proxy artifact grilling -> `trellis-grill-agents`.
 - Before editing -> `trellis-before-dev`; after editing -> `trellis-check`.
