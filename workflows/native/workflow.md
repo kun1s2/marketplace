@@ -52,7 +52,10 @@ python3 ./.trellis/scripts/task.py create "<title>" [--slug <name>] [--parent <d
 python3 ./.trellis/scripts/task.py start <name>          # set active task (session-scoped when available)
 python3 ./.trellis/scripts/task.py current --source      # show active task and source
 python3 ./.trellis/scripts/task.py finish                # clear active task (triggers after_finish hooks)
-python3 ./.trellis/scripts/task.py archive <name>        # move to archive/{year-month}/
+python3 ./.trellis/scripts/task.py complete <name>       # successful terminal outcome
+python3 ./.trellis/scripts/task.py cancel <name> [--reason <text>]
+python3 ./.trellis/scripts/task.py supersede <name> --by <replacement> [--reason <text>]
+python3 ./.trellis/scripts/task.py archive <name>        # move an existing terminal task
 python3 ./.trellis/scripts/task.py list [--mine] [--status <s>]
 python3 ./.trellis/scripts/task.py list-archive
 
@@ -78,7 +81,7 @@ python3 ./.trellis/scripts/task.py create-pr [name] [--dry-run]
 
 > Run `python3 ./.trellis/scripts/task.py --help` to see the authoritative, up-to-date list.
 
-**Current-task mechanism**: `task.py create` creates the task directory and (when session identity is available) auto-sets the per-session active-task pointer so the planning breadcrumb fires immediately. `task.py start` writes the same pointer (idempotent if already set) and flips `task.json.status` from `planning` to `in_progress`. State is stored under `.trellis/.runtime/sessions/`. If no context key is available from hook input, `TRELLIS_CONTEXT_ID`, or a platform-native session environment variable, there is no active task and `task.py start` fails with a session identity hint. `task.py finish` deletes the current session file (status unchanged). `task.py archive <task>` writes `status=completed`, moves the directory to `archive/`, and deletes any runtime session files that still point at the archived task.
+**Current-task mechanism**: `task.py create` creates the task directory and (when session identity is available) auto-sets the per-session active-task pointer so the planning breadcrumb fires immediately. `task.py start` writes the same pointer (idempotent if already set) and flips `task.json.status` from `planning` to `in_progress`. State is stored under `.trellis/.runtime/sessions/`. If no context key is available from hook input, `TRELLIS_CONTEXT_ID`, or a platform-native session environment variable, there is no active task and `task.py start` fails with a session identity hint. `task.py finish` deletes the current session file (status unchanged). `task.py complete`, `cancel`, and `supersede` write the explicit terminal outcome in place and clear every session pointer to the task. `task.py archive <task>` only moves an already terminal task to `archive/` and preserves its outcome.
 
 ### Workspace System
 
@@ -128,14 +131,12 @@ python3 ./.trellis/scripts/get_context.py --mode phase --step <X.Y>  # detailed 
     [workflow-state:planning-inline] → Codex inline variant of Phase 1
     [workflow-state:in_progress]  → Phase 2 + Phase 3.1-3.4
                                     (status stays 'in_progress' from
-                                    task.py start until task.py archive)
+                                    task.py start until an explicit terminal command)
     [workflow-state:in_progress-inline] → Codex inline variant of Phase 2/3
-    [workflow-state:completed]    → currently DEAD: cmd_archive flips
-                                    status and moves the dir in the same
-                                    call, so the resolver loses the
-                                    pointer (block kept for a future
-                                    explicit in_progress→completed
-                                    transition)
+    [workflow-state:completed]    → fallback-only terminal breadcrumb
+    [workflow-state:cancelled]    → fallback-only terminal breadcrumb
+    [workflow-state:superseded]   → fallback-only terminal breadcrumb
+                                    (normal terminal commands clear the pointer)
 
   Editing checklist:
     - When you change a [workflow-state:STATUS] block, also check the
@@ -249,7 +250,7 @@ Inline mode: skip jsonl curation; Phase 2 reads artifacts/specs via `trellis-bef
 
 <!-- Per-turn breadcrumb: shown while status='in_progress'.
      Scope: all of Phase 2 + Phase 3.1-3.4 (status stays 'in_progress' from
-     task.py start until task.py archive; only archive flips it). The body
+     task.py start until complete/cancel/supersede). The body
      therefore must cover every required step from implementation through
      commit, including Phase 3.3 spec update and Phase 3.4 commit. -->
 
@@ -284,17 +285,21 @@ Read context: `prd.md` -> `design.md if present` -> `implement.md if present`, p
 - 3.4 Commit changes `[required · once]`
 - 3.5 Wrap-up reminder
 
-<!-- Per-turn breadcrumb: shown while status='completed'.
-     Currently DEAD in normal flow: cmd_archive writes status='completed' in
-     the same call that moves the task dir to archive/, so the active-task
-     resolver loses the pointer and the hook never fires on archived tasks.
-     Block preserved for a future status-transition redesign (e.g. an
-     explicit in_progress→completed command). Edit through the same spec
-     channel as the live blocks. -->
+<!-- Terminal breadcrumbs are fallback-only in normal command flow because
+     complete/cancel/supersede clear all session pointers immediately. They
+     remain useful when a pointer is restored manually or by external tooling. -->
 
 [workflow-state:completed]
-Code committed. Run `/trellis:finish-work`; if dirty, return to Phase 3.4 first.
+Task outcome is `completed`. Archive it without changing the recorded outcome.
 [/workflow-state:completed]
+
+[workflow-state:cancelled]
+Task outcome is `cancelled`. Archive it without changing the recorded outcome.
+[/workflow-state:cancelled]
+
+[workflow-state:superseded]
+Task outcome is `superseded`. Archive it without changing the recorded outcome.
+[/workflow-state:superseded]
 
 ### Rules
 
@@ -713,7 +718,7 @@ All tag blocks live in the `## Phase Index` section above, immediately after eac
 | Codex inline Phase 1 | `[workflow-state:planning-inline]` |
 | Phase 2 + Phase 3.1–3.4 (implementation + check + wrap-up) | `[workflow-state:in_progress]` (after Phase 2 summary) |
 | Codex inline Phase 2 + Phase 3.1–3.4 | `[workflow-state:in_progress-inline]` |
-| After Phase 3.5 (archived) | `[workflow-state:completed]` (after Phase 3 summary; **currently DEAD**) |
+| Terminal fallback | `[workflow-state:completed]`, `[workflow-state:cancelled]`, `[workflow-state:superseded]` |
 
 ### Changing the per-turn prompt text
 
@@ -732,7 +737,7 @@ your per-turn prompt text
 Constraints:
 - STATUS charset: `[A-Za-z0-9_-]+` (underscores and hyphens allowed, e.g. `in-review`, `blocked-by-team`)
 - A lifecycle hook must write `task.json.status` to your custom value, otherwise the tag is never read
-- Lifecycle hooks live in `task.json.hooks.after_*` and bind to one of `after_create / after_start / after_finish / after_archive`
+- Lifecycle hooks live in `task.json.hooks.after_*` and bind to one of `after_create / after_start / after_finish / after_complete / after_cancel / after_supersede / after_archive`
 
 ### Adding a lifecycle hook
 
@@ -748,7 +753,7 @@ Add a `hooks` field to your `task.json`:
 }
 ```
 
-Supported events: `after_create / after_start / after_finish / after_archive`. Note that `after_finish` ≠ a status change (it only clears the active-task pointer); use `after_archive` for "task is done" notifications.
+Supported events: `after_create / after_start / after_finish / after_complete / after_cancel / after_supersede / after_archive`. `after_finish` only clears one session pointer. Terminal outcome subscribers use the matching terminal event; `after_archive` means physical relocation only.
 
 ### Full contract
 
