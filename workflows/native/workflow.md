@@ -164,19 +164,18 @@ Phase 3: Finish  → verify, update spec, commit, and wrap up
 ### Planning Artifacts
 
 - `prd.md` — requirements, constraints, and acceptance criteria. Do not put technical design or execution checklists here.
-- `design.md` — technical design for complex tasks: boundaries, contracts, data flow, tradeoffs, compatibility, rollout / rollback shape.
+- `design.md` — technical design for complex tasks: boundaries, contracts, data flow, tradeoffs, compatibility, rollout / rollback shape, and a non-empty `## Architecture Impact` section.
 - `implement.md` — execution plan for complex tasks: ordered checklist, validation commands, review gates, and rollback points.
 - `implement.jsonl` / `check.jsonl` — spec and research manifests for sub-agent context. They do not replace `implement.md`.
 - Lightweight tasks may be PRD-only. Complex tasks must have `prd.md`, `design.md`, and `implement.md` before `task.py start`.
 
-### Architecture Shaping Decision
+### Architecture Impact
 
-Before complex planning can be marked ready, record an architecture-shaping trigger decision in `design.md` for complex tasks or `prd.md` for PRD-only tasks. The decision is one of:
+Before complex planning can be marked ready, `design.md` must contain a non-empty `## Architecture Impact` section. It records affected boundaries and responsibilities, contracts/state/schema/data flow, testability, important trade-offs, and whether deeper shaping is justified.
 
-- `Architecture Shaping: required; see research/architecture-shaping.md.` — the task creates modules, changes cross-layer contracts, introduces durable domain behavior, affects testability, or risks toy-MVP implementation.
-- `Architecture Shaping: skipped, because ...` — the task is local, mechanical, low-risk, and the low-risk reason is backed by task or repository evidence.
+Use `trellis-architecture-shaping` to produce the smallest production-shaped analysis that avoids toy-MVP collapse. Keep the result inline by default.
 
-When shaping is required, run `trellis-architecture-shaping`, write or reference `research/architecture-shaping.md`, and add that file to `implement.jsonl` / `check.jsonl` when sub-agents or review gates need it. Only accepted constraints referenced by `design.md` or `implement.md` bind later agents; adjustable recommendations stay advisory.
+Create `research/architecture-shaping.md` only for a cross-package/service boundary, schema/API migration, core state/workflow restructuring, high data-integrity risk, evidence-based comparison of multiple plausible module splits, or an explicit deep-shaping request. Link adopted conclusions from `design.md#Architecture Impact`; `design.md` remains the decision authority. Add linked research to `implement.jsonl` / `check.jsonl` only when sub-agents need it.
 
 ### Grill Gate
 
@@ -218,7 +217,7 @@ Complex task: ask the user if you can create a Trellis task and enter the planni
 [workflow-state:planning]
 If this task was initialized or converted by `trellis-goal`, load `trellis-goal` when available and follow `prd.md` Goal Contract plus `implement.md` checkpoints; bridge or continue through the current platform's native goal state when native Goal tools exist, otherwise record/report the unavailable native handoff instead of running a local Trellis execution loop.
 Otherwise, load `trellis-brainstorm`; stay in planning and make an explicit Grill Gate decision before start.
-Architecture Shaping: record `Architecture Shaping: required; see research/architecture-shaping.md.` or `Architecture Shaping: skipped, because ...` before `task.py start` for complex tasks. Use `trellis-architecture-shaping` when the task creates modules, changes contracts, affects testability, introduces durable domain behavior, or risks toy-MVP implementation.
+Architecture Impact: before `task.py start`, ensure every complex-task `design.md` has a non-empty `## Architecture Impact` section. Use `trellis-architecture-shaping` for the analysis; keep it inline by default and create linked research only for deep triggers such as cross-package/service boundaries, schema/API migration, core state/workflow restructuring, high data-integrity risk, or competing module splits. Preserve production-shaped boundaries and avoid toy-MVP implementation.
 Grill Gate: record `trellis-grill-me required`, `trellis-grill-agents required`, or `skip grill, because ...` in the task artifacts. The AI may skip only when evidence proves the task is mechanical, low-risk, and acceptance is explicit.
 Use `trellis-grill-me` when real user product, scope, preference, UX, compatibility, security, or data-integrity decisions remain. Use `trellis-grill-agents` only when the user explicitly authorized unattended/proxy answers; if it surfaces a real user decision, stop and route back to the user.
 Lightweight: `prd.md` can be enough. Complex: finish `prd.md`, `design.md`, and `implement.md`; ask for review before `task.py start`.
@@ -235,7 +234,7 @@ Sub-agent mode: curate `implement.jsonl` and `check.jsonl` as spec/research mani
 [workflow-state:planning-inline]
 If this task was initialized or converted by `trellis-goal`, load `trellis-goal` when available and follow `prd.md` Goal Contract plus `implement.md` checkpoints; bridge or continue through the current platform's native goal state when native Goal tools exist, otherwise record/report the unavailable native handoff instead of running a local Trellis execution loop.
 Otherwise, load `trellis-brainstorm`; stay in planning and make an explicit Grill Gate decision before start.
-Architecture Shaping: record `Architecture Shaping: required; see research/architecture-shaping.md.` or `Architecture Shaping: skipped, because ...` before `task.py start` for complex tasks. Use `trellis-architecture-shaping` when the task creates modules, changes contracts, affects testability, introduces durable domain behavior, or risks toy-MVP implementation.
+Architecture Impact: before `task.py start`, ensure every complex-task `design.md` has a non-empty `## Architecture Impact` section. Use `trellis-architecture-shaping` for the analysis; keep it inline by default and create linked research only for deep triggers such as cross-package/service boundaries, schema/API migration, core state/workflow restructuring, high data-integrity risk, or competing module splits. Preserve production-shaped boundaries and avoid toy-MVP implementation.
 Grill Gate: record `trellis-grill-me required`, `trellis-grill-agents required`, or `skip grill, because ...` in the task artifacts. The AI may skip only when evidence proves the task is mechanical, low-risk, and acceptance is explicit.
 Use `trellis-grill-me` when real user product, scope, preference, UX, compatibility, security, or data-integrity decisions remain. Use `trellis-grill-agents` only when the user explicitly authorized unattended/proxy answers; if it surfaces a real user decision, stop and route back to the user.
 Lightweight: `prd.md` can be enough. Complex: finish `prd.md`, `design.md`, and `implement.md`; ask for review before `task.py start`.
@@ -386,7 +385,7 @@ The brainstorm skill will guide you to:
 - Split large scopes into a parent task plus child tasks when the deliverables can be verified independently
 - Keep `prd.md` focused on requirements and acceptance criteria
 - For complex tasks, produce `design.md` and `implement.md` before implementation starts
-- Record the architecture-shaping trigger decision; run `trellis-architecture-shaping` and reference `research/architecture-shaping.md` when required
+- Write a non-empty `design.md#Architecture Impact`; run `trellis-architecture-shaping` when needed, keep analysis inline by default, and link deep research only when a deep trigger applies
 - Make and record the Grill Gate decision before planning is declared ready
 
 When considering a parent/child split:
@@ -420,7 +419,7 @@ Do the research in the main session directly and write findings into `{TASK_DIR}
 
 **Research artifact conventions**:
 - One file per research topic (e.g. `research/auth-library-comparison.md`)
-- Use `research/architecture-shaping.md` for architecture-sensitive planning output from `trellis-architecture-shaping`
+- Use `research/architecture-shaping.md` only for deep architecture shaping; ordinary architecture analysis belongs in `design.md#Architecture Impact`
 - Record third-party library usage examples, API references, version constraints in files
 - Note relevant spec file paths you discovered for later reference
 
@@ -489,7 +488,7 @@ After artifact review, flip the task status to `in_progress`:
 python3 ./.trellis/scripts/task.py start <task-dir>
 ```
 
-For lightweight tasks, `prd.md` can be enough. For complex tasks, `prd.md`, `design.md`, and `implement.md` must exist and be reviewed before start. A recorded architecture-shaping trigger decision is required for complex tasks, and a recorded Grill Gate decision is required in all cases. On sub-agent-capable platforms, curate jsonl manifests when extra spec or research context is needed; seed-only manifests are tolerated by consumers.
+For lightweight tasks, `prd.md` can be enough. For complex tasks, `prd.md`, `design.md`, and `implement.md` must exist and be reviewed before start, and `design.md` must contain a non-empty `## Architecture Impact` section. A recorded Grill Gate decision is required in all cases. On sub-agent-capable platforms, curate jsonl manifests when extra spec or research context is needed; seed-only manifests are tolerated by consumers.
 
 After this command succeeds, the breadcrumb auto-switches to `[workflow-state:in_progress]`, and the rest of Phase 2 / 3 follows.
 
@@ -500,11 +499,11 @@ If `task.py start` errors with a session-identity message (no context key from h
 | Condition | Required |
 |------|:---:|
 | `prd.md` exists | ✅ |
-| Complex task records `Architecture Shaping: required; see research/architecture-shaping.md.` or `Architecture Shaping: skipped, because ...` | ✅ |
+| Complex-task `design.md` contains a non-empty `## Architecture Impact` section | ✅ |
 | Grill Gate result is recorded in `prd.md` or `implement.md` | ✅ |
 | User confirms task should enter implementation | ✅ |
 | `task.py start` has been run (status = in_progress) | ✅ |
-| `research/` has artifacts (complex tasks) | recommended |
+| Deep architecture or external research is written under `research/` and linked when needed | conditional |
 | `design.md` exists (complex tasks) | ✅ |
 | `implement.md` exists (complex tasks) | ✅ |
 
