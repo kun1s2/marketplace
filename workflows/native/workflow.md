@@ -48,9 +48,11 @@ Every task has its own directory under `.trellis/tasks/{MM-DD-name}/` holding `t
 
 ```bash
 # Task lifecycle
-python3 ./.trellis/scripts/task.py create "<title>" [--slug <name>] [--parent <dir>]
+python3 ./.trellis/scripts/task.py create "<title>" [--slug <name>] [--parent <dir>] [--base-branch <branch>]
+python3 ./.trellis/scripts/task.py focus <name>          # bind context/checkout without changing status
 python3 ./.trellis/scripts/task.py start <name>          # set active task (session-scoped when available)
-python3 ./.trellis/scripts/task.py current --source      # show active task and source
+python3 ./.trellis/scripts/task.py current --source      # show active task and resolution source
+python3 ./.trellis/scripts/task.py current --json        # include checkout and remote-finish metadata
 python3 ./.trellis/scripts/task.py finish                # clear active task (triggers after_finish hooks)
 python3 ./.trellis/scripts/task.py complete <name>       # successful terminal outcome
 python3 ./.trellis/scripts/task.py cancel <name> [--reason <text>]
@@ -70,6 +72,9 @@ python3 ./.trellis/scripts/task.py validate <name>
 python3 ./.trellis/scripts/task.py set-branch <name> <branch>
 python3 ./.trellis/scripts/task.py set-base-branch <name> <branch>    # PR target
 python3 ./.trellis/scripts/task.py set-scope <name> <scope>
+python3 ./.trellis/scripts/task.py set-meta <name> <key> <value>
+python3 ./.trellis/scripts/task.py set-remote-finish <name> <local|open-pr|merge-after-green>
+python3 ./.trellis/scripts/task.py set-remote-state <name> <state> [--commit <sha>] [--pr-url <url>]
 
 # Hierarchy (parent/child)
 python3 ./.trellis/scripts/task.py add-subtask <parent> <child>
@@ -81,7 +86,7 @@ python3 ./.trellis/scripts/task.py create-pr [name] [--dry-run]
 
 > Run `python3 ./.trellis/scripts/task.py --help` to see the authoritative, up-to-date list.
 
-**Current-task mechanism**: `task.py create` creates the task directory and (when session identity is available) auto-sets the per-session active-task pointer so the planning breadcrumb fires immediately. `task.py start` writes the same pointer (idempotent if already set) and flips `task.json.status` from `planning` to `in_progress`. State is stored under `.trellis/.runtime/sessions/`. If no context key is available from hook input, `TRELLIS_CONTEXT_ID`, or a platform-native session environment variable, there is no active task and `task.py start` fails with a session identity hint. `task.py finish` deletes the current session file (status unchanged). `task.py complete`, `cancel`, and `supersede` write the explicit terminal outcome in place and clear every session pointer to the task. `task.py archive <task>` only moves an already terminal task to `archive/` and preserves its outcome.
+**Current-task mechanism**: `task.py create` creates the task directory and, when session identity is available, focuses it so the planning breadcrumb fires immediately. `task.py focus` writes the disposable per-session pointer, stores only a hashed context binding in `task.json.meta`, and snapshots the live branch/linked-worktree path without changing status. `task.py start` first applies the same focus operation, then flips `task.json.status` from `planning` to `in_progress`. Runtime state lives under `.trellis/.runtime/sessions/`; when that cache is absent, a unique durable context binding restores the task, while duplicate bindings produce an explicit ambiguity. Git remains authoritative for branch/worktree state. If no context key is available from hook input, `TRELLIS_CONTEXT_ID`, or a platform-native session environment variable, `focus/start` fails with a session identity hint. `task.py finish` deletes the current session file (status unchanged). `task.py complete`, `cancel`, and `supersede` write the explicit terminal outcome in place and clear every session pointer to the task. `task.py archive <task>` only moves an already terminal task to `archive/` and preserves its outcome.
 
 ### Workspace System
 
@@ -260,7 +265,7 @@ Sub-agent dispatch protocol applies to all platforms and all sub-agents, includi
 Goal execution override: if the active task's `prd.md` contains `## Goal Contract` or Goal Contract Collision output from `trellis-goal`, load `trellis-goal` when available. Inspect current-platform native goal state when native Goal tools exist, continue only active native goals, and use `implement.md` checkpoints as evidence/recovery landmarks rather than a local queue or run-to-completion loop. Sessions without native goal tools must record/report unavailable native handoff instead of simulating a goal runner.
 Active goal behavior: while the Goal Contract objective and Frozen Invariants remain unchanged, do not fall back to the ordinary task clarification loop. Continue autonomously through approved research, `trellis-grill-agents` for medium ambiguity, delegated decisions, verification, and Evidence Chain updates. High-risk, scope-changing, credential/production/legal/destructive, or user-owned boundaries must Stop/Block with a Trellis artifact record before any native terminal-status action.
 Tools: `trellis-implement` / `trellis-research` are sub-agent types only (Task/Agent tool, NOT Skill; there is no skill by these names). `trellis-update-spec` is a skill. `trellis-check` exists as both; prefer the Agent form when verifying after code changes.
-Flow: `trellis-implement` -> `trellis-check` -> `trellis-update-spec` -> commit (Phase 3.4) -> `/trellis:finish-work`.
+Flow: `trellis-implement` -> `trellis-check` -> `trellis-update-spec` -> attach detached/base work to `codex/<task-slug>` and commit (Phase 3.4) -> `/trellis:finish-work`.
 Main-session default: dispatch implement/check sub-agents. Sub-agent self-exemption: if already running as `trellis-implement`, do NOT spawn another `trellis-implement` or `trellis-check`; if already running as `trellis-check`, do NOT spawn another `trellis-check` or `trellis-implement`. Dispatch is main session only.
 Dispatch prompt starts with `Active task: <task path from task.py current>`. Read context: jsonl entries -> `prd.md` -> `design.md if present` -> `implement.md if present`.
 [/workflow-state:in_progress]
@@ -273,7 +278,7 @@ Dispatch prompt starts with `Active task: <task path from task.py current>`. Rea
 [workflow-state:in_progress-inline]
 Goal execution override: if the active task's `prd.md` contains `## Goal Contract` or Goal Contract Collision output from `trellis-goal`, load `trellis-goal` when available. Inspect current-platform native goal state when native Goal tools exist, continue only active native goals, and use `implement.md` checkpoints as evidence/recovery landmarks rather than a local queue or run-to-completion loop. Sessions without native goal tools must record/report unavailable native handoff instead of simulating a goal runner.
 Active goal behavior: while the Goal Contract objective and Frozen Invariants remain unchanged, do not fall back to the ordinary task clarification loop. Continue autonomously through approved research, `trellis-grill-agents` for medium ambiguity, delegated decisions, verification, and Evidence Chain updates. High-risk, scope-changing, credential/production/legal/destructive, or user-owned boundaries must Stop/Block with a Trellis artifact record before any native terminal-status action.
-Flow: `trellis-before-dev` -> edit -> `trellis-check` -> validation -> `trellis-update-spec` -> commit (Phase 3.4) -> `/trellis:finish-work`.
+Flow: `trellis-before-dev` -> edit -> `trellis-check` -> validation -> `trellis-update-spec` -> attach detached/base work to `codex/<task-slug>` and commit (Phase 3.4) -> `/trellis:finish-work`.
 Do not dispatch implement/check sub-agents in inline mode.
 Read context: `prd.md` -> `design.md if present` -> `implement.md if present`, plus relevant spec/research loaded by skills.
 [/workflow-state:in_progress-inline]
@@ -644,29 +649,50 @@ Update the docs under `.trellis/spec/` accordingly. Even if the conclusion is "n
 
 #### 3.4 Commit changes `[required · once]`
 
-The AI drives a batched commit of this task's code changes so `/finish-work` can run cleanly afterwards. Goal: produce work commits FIRST, then bookkeeping (archive + journal) commits land after — never interleaved.
+The AI drives a batched commit of this task's code changes so `/finish-work` can resume from a durable feature tip. Goal: attach Codex-managed detached work to a branch, produce work commits FIRST, then let the recorded finish policy control later bookkeeping and remote operations.
 
 **Step-by-step**:
 
-1. **Inspect dirty state**:
+1. **Resolve task and checkout facts**:
+   ```bash
+   python3 ./.trellis/scripts/task.py current --json
+   git branch --show-current
+   git rev-parse HEAD
+   ```
+   Read `current_task.dir`, `base_branch`, and the recorded `branch`. Git is the
+   live source of truth.
+
+2. **Attach the work before committing**:
+   - If `HEAD` is detached, or the current branch equals `base_branch`, create
+     `codex/<task-slug>` at the current `HEAD`.
+   - If that branch already points at different work or is checked out in
+     another worktree, stop and report the collision; never force-move it.
+   - If already on a non-base feature branch, keep the actual branch.
+   - Record the resulting branch:
+     ```bash
+     python3 ./.trellis/scripts/task.py set-branch <task-dir> <actual-branch>
+     ```
+
+3. **Inspect dirty state**:
    ```bash
    git status --porcelain
    ```
-   Snapshot every dirty path. If the working tree is clean, skip to 3.5.
+   Snapshot every dirty path. A clean tree may mean Phase 3.4 was already
+   committed; verify the recorded commit/checkpoint before skipping ahead.
 
-2. **Learn commit style** from recent history (so drafted messages blend in):
+4. **Learn commit style** from recent history (so drafted messages blend in):
    ```bash
    git log --oneline -5
    ```
    Note the prefix convention (`feat:` / `fix:` / `chore:` / `docs:` ...), language (中文/English), and length style.
 
-3. **Classify dirty files into two groups**:
+5. **Classify dirty files into two groups**:
    - **AI-edited this session** — files you wrote/edited via Edit/Write/Bash tool calls in this session. You know what changed and why.
    - **Unrecognized** — dirty files you did NOT touch this session (could be the user's manual edits, leftover WIP from a previous session, or unrelated work). Do NOT silently include these.
 
-4. **Draft a commit plan**. Group AI-edited files into logical commits (1 commit per coherent change unit, not 1 commit per file). Each entry: `<commit message>` + file list. List unrecognized files separately at the bottom.
+6. **Draft a commit plan**. Group AI-edited files into logical commits (1 commit per coherent change unit, not 1 commit per file). Each entry: `<commit message>` + file list. List unrecognized files separately at the bottom.
 
-5. **Present the plan once, ask for one-shot confirmation**. Format:
+7. **Present the plan once, ask for one-shot confirmation**. Format:
    ```
    Proposed commits (in order):
      1. <message>
@@ -682,19 +708,32 @@ The AI drives a batched commit of this task's code changes so `/finish-work` can
    Reply 'ok' / '行' to execute. Reply with edits, or '我自己来' / 'manual' to abort.
    ```
 
-6. **On confirmation**: run `git add <files>` + `git commit -m "<msg>"` for each batch in order. Do not amend. Do not push.
+8. **On confirmation**: run `git add <files>` + `git commit -m "<msg>"` for each batch in order. Do not amend. Do not push.
 
-7. **On rejection** (user replies "不行" / "我自己来" / "manual" / any pushback on the plan): stop. Do not attempt a second plan. The user will commit by hand; you skip ahead to 3.5 once they confirm.
+9. **On rejection** (user replies "不行" / "我自己来" / "manual" / any pushback on the plan): stop. Do not attempt a second plan. The user will commit by hand; you skip ahead to 3.5 once they confirm.
+
+10. **Record the durable work tip** after the final work commit:
+    ```bash
+    python3 ./.trellis/scripts/task.py set-remote-state \
+      <task-dir> committed --commit <feature-tip-sha>
+    ```
+    Missing policy resolves to `local`. This command validates the policy/state
+    transition and leaves task metadata for `/trellis:finish-work` to include in
+    the local archive commit or the remote checkpoint flow.
 
 **Rules**:
 - No `git commit --amend` anywhere — three-stage three-commit flow (work commits → archive commit → journal commit).
 - Never push to remote in this step.
+- Never commit on detached `HEAD` or directly on the recorded base branch.
 - If the user wants different message wording but accepts the file grouping, edit the message and re-confirm once — but if they reject the grouping, exit to manual mode.
 - The batched plan is one prompt; do not prompt per commit.
 
 #### 3.5 Wrap-up reminder
 
-After the above, remind the user they can run `/finish-work` to wrap up (archive the task, record the session).
+After the above, run or remind the user to run `/finish-work`. It reads
+`meta.remote_finish` and resumes `local`, `open-pr`, or `merge-after-green`
+without asking the user to perform Git/PR merge steps already covered by that
+recorded policy. Codex App chat/worktree archival remains the final UI action.
 
 ---
 
